@@ -37,32 +37,31 @@ function makeKeyPressHandler(value) {
 document.addEventListener("keydown", makeKeyPressHandler(true), false);
 document.addEventListener("keyup", makeKeyPressHandler(false), false);
 
-// timing
-var timer = makeTimer(5, 1);
-var fpsShowAction = makePeriodicAction(1000, function() {
-  showFPSCounter(timer, document.getElementById("fps"));
-});
-function showFPSCounter(timer, ele) {
-  ele.innerHTML = "fps=" + (1000/timer.avg).toFixed(1);
-}
-
-function makeTimer(oldWeight, newWeight) {
+// FPS display
+function makeFPSDisplay(oldWeight, newWeight) {
   return {
     begin : new Date,
     end : new Date,
     avg : 0,
     old_weight : oldWeight,
     new_weight : newWeight,
+
   };
 }
-function updateTimer(t) {
-  t.begin = t.end;
-  t.end = new Date;
-  var delta = t.end - t.begin;
-  t.avg = (t.avg * t.old_weight + delta * t.new_weight) / (t.old_weight + t.new_weight);
-  return t.avg;
+
+function updateFPSDisplay(self, timestamp) {
+  self.begin = self.end;
+  self.end = timestamp;
+  var delta = self.end - self.begin;
+  self.avg = (self.avg * self.old_weight + delta * self.new_weight) / (self.old_weight + self.new_weight);
+}
+function showFPSDisplay(self, ele) {
+  ele.innerHTML = "fps=" + (1000/self.avg).toFixed(1);
 }
 
+var fpsDisplay = makeFPSDisplay(5, 1);
+
+// Periodic action
 function makePeriodicAction(period_, func_) {
   return {
     period : period_,
@@ -78,6 +77,10 @@ function updatePeriodicAction(action, cycles) {
     action.func();
   }
 }
+
+var fpsShowAction = makePeriodicAction(1000, function() {
+  showFPSDisplay(fpsDisplay, document.getElementById("fps"));
+});
 
 // game logic
 function WorldMake(){
@@ -122,18 +125,26 @@ function WorldUpdate(self, input) {
   }
 }
 
-function step() {
-  var ms = updateTimer(timer);
+var world = WorldMake();
+WorldAdd(world, {x:0,y:0,radius:10});
+
+var previousTimestamp = 0;
+function step(timestamp) {
+  requestAnimationFrame(step);
+  var ms = timestamp - previousTimestamp;
+  previousTimestamp = timestamp;
+
+  updateFPSDisplay(fpsDisplay, timestamp);
   updatePeriodicAction(fpsShowAction, ms);
 
   WorldDraw(world);
+  
   ms = Math.min(ms, 30);
   for(var i = 0; i < ms; i++) {
     WorldUpdate(world, input);
   }
 
+  
 }
 
-var world = WorldMake();
-WorldAdd(world, {x:0,y:0,radius:10});
-setInterval(step, 0);
+step(1);
