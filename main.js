@@ -1,3 +1,4 @@
+"use strict";
 var canvas = document.getElementById("canvas");
 var ctx = canvas.getContext("2d");
 
@@ -106,7 +107,7 @@ function WorldDraw(self) {
   }
 }
 function WorldUpdate(self, input) {
-  player = self.objects[self.player];
+  var player = self.objects[self.player];
   if(input.pressedLeft) {
     player.x += -0.1;
   }
