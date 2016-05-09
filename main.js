@@ -88,19 +88,42 @@ function WorldAdd(self, o){
   self.objects.push(o);
 }
 
+function ShipMake(){
+  return {
+    x:0,
+    y:0,
+    canvas: (function(){
+      var canvas = document.createElement('canvas');
+      canvas.width = 49;
+      canvas.height = 49;
+      var context = canvas.getContext('2d');
+      context.beginPath();
+      context.moveTo(24, 0);
+      context.lineTo(48, 48);
+      context.lineTo(24, 34);
+      context.lineTo(0, 48);
+      context.closePath();
+      context.stroke();
 
-function drawBall(x, y, r) {
-  ctx.beginPath();
-  ctx.arc(x, y, r, 0, Math.PI*2);
-  ctx.fillStyle = "#0095DD";
-  ctx.fill();
-  ctx.closePath();
+      context.fillStyle = "#0095DD";
+      context.fill();
+      return canvas;
+    })()
+  }
 }
+
+function ObjectDraw(obj) {
+  var canvas = obj.canvas;
+  var dx = obj.x - canvas.width / 2;
+  var dy = obj.y - canvas.height / 2;
+  ctx.drawImage(canvas, dx, dy);
+}
+
 function WorldDraw(self) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   for(var i = 0; i < self.objects.length; i++) {
     var obj = self.objects[i];
-    drawBall(obj.x, obj.y, obj.radius);
+    drawObject(obj);
   }
 }
 function WorldUpdate(self, input) {
@@ -125,7 +148,7 @@ var fpsShowAction = makePeriodicAction(1000, function() {
 });
 
 var world = WorldMake();
-WorldAdd(world, {x:0,y:0,radius:10});
+WorldAdd(world, ShipMake());
 
 var previousTimestamp = 0;
 var deltaTime = 0;
