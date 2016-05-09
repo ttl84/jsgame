@@ -59,8 +59,6 @@ function showFPSDisplay(self, ele) {
   ele.innerHTML = "fps=" + (1000/self.avg).toFixed(1);
 }
 
-var fpsDisplay = makeFPSDisplay(5, 1);
-
 // Periodic action
 function makePeriodicAction(period_, func_) {
   return {
@@ -77,10 +75,6 @@ function updatePeriodicAction(action, cycles) {
     action.func();
   }
 }
-
-var fpsShowAction = makePeriodicAction(1000, function() {
-  showFPSDisplay(fpsDisplay, document.getElementById("fps"));
-});
 
 // game logic
 function WorldMake(){
@@ -125,26 +119,31 @@ function WorldUpdate(self, input) {
   }
 }
 
+var fpsDisplay = makeFPSDisplay(5, 1);
+var fpsShowAction = makePeriodicAction(1000, function() {
+  showFPSDisplay(fpsDisplay, document.getElementById("fps"));
+});
+
 var world = WorldMake();
 WorldAdd(world, {x:0,y:0,radius:10});
 
 var previousTimestamp = 0;
+var deltaTime = 0;
 function step(timestamp) {
   requestAnimationFrame(step);
-  var ms = timestamp - previousTimestamp;
+  deltaTime += (timestamp - previousTimestamp);
   previousTimestamp = timestamp;
 
   updateFPSDisplay(fpsDisplay, timestamp);
-  updatePeriodicAction(fpsShowAction, ms);
+  updatePeriodicAction(fpsShowAction, deltaTime);
 
   WorldDraw(world);
   
-  ms = Math.min(ms, 30);
-  for(var i = 0; i < ms; i++) {
+  deltaTime = Math.min(deltaTime, 30);
+  while(deltaTime > 0) {
     WorldUpdate(world, input);
+    deltaTime -= 1.0;
   }
-
-  
 }
 
 step(1);
