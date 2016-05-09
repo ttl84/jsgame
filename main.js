@@ -92,7 +92,10 @@ function ShipMake(){
   return {
     x:100,
     y:100,
+    vx:0,
+    vy:0,
     rotation: 0,
+    acceleration: 0,
     canvas: (function(){
       var canvas = document.createElement('canvas');
       canvas.width = 49;
@@ -100,10 +103,10 @@ function ShipMake(){
 
       var context = canvas.getContext('2d');
       context.beginPath();
-      context.moveTo(24, 0);
-      context.lineTo(48, 48);
-      context.lineTo(24, 34);
+      context.moveTo(0, 0);
+      context.lineTo(48, 24);
       context.lineTo(0, 48);
+      context.lineTo(14, 24);
       context.closePath();
       context.stroke();
 
@@ -127,6 +130,22 @@ function ObjectDraw(obj) {
   ctx.restore();
 }
 
+function ObjectPhysics(obj) {
+
+  var ax = Math.cos(obj.rotation);
+  var ay = Math.sin(obj.rotation);
+  var aLen = Math.sqrt(ax * ax + ay * ay);
+  ax = ax / aLen * obj.acceleration;
+  ay = ay / aLen * obj.acceleration;
+  
+  obj.vx += ax;
+  obj.vy += ay;
+
+  obj.x += obj.vx;
+  obj.y += obj.vy;
+
+}
+
 function WorldDraw(self) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   for(var i = 0; i < self.objects.length; i++) {
@@ -142,11 +161,18 @@ function WorldUpdate(self, input) {
   if(input.pressedRight) {
     player.rotation += 0.001;
   }
+
+  player.acceleration = 0;
   if(input.pressedUp) {
-    player.y -= 0.1;
+    player.acceleration = 0.0001;
   }
   if(input.pressedDown) {
-    player.y -= -0.1;
+    player.acceleration = -0.00005;
+  }
+  
+  for(var i = 0; i < self.objects.length; i++) {
+    var obj = self.objects[i];
+    ObjectPhysics(obj);
   }
 }
 
