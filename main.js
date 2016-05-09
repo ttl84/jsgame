@@ -90,12 +90,14 @@ function WorldAdd(self, o){
 
 function ShipMake(){
   return {
-    x:0,
-    y:0,
+    x:100,
+    y:100,
+    rotation: 0,
     canvas: (function(){
       var canvas = document.createElement('canvas');
       canvas.width = 49;
       canvas.height = 49;
+
       var context = canvas.getContext('2d');
       context.beginPath();
       context.moveTo(24, 0);
@@ -114,25 +116,31 @@ function ShipMake(){
 
 function ObjectDraw(obj) {
   var canvas = obj.canvas;
-  var dx = obj.x - canvas.width / 2;
-  var dy = obj.y - canvas.height / 2;
-  ctx.drawImage(canvas, dx, dy);
+
+  ctx.save();
+
+  ctx.translate(obj.x, obj.y);
+  ctx.rotate(obj.rotation);
+
+  ctx.drawImage(canvas, -canvas.width/2, -canvas.height/2);
+
+  ctx.restore();
 }
 
 function WorldDraw(self) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   for(var i = 0; i < self.objects.length; i++) {
     var obj = self.objects[i];
-    drawObject(obj);
+    ObjectDraw(obj);
   }
 }
 function WorldUpdate(self, input) {
   var player = self.objects[self.player];
   if(input.pressedLeft) {
-    player.x += -0.1;
+    player.rotation -= 0.001;
   }
   if(input.pressedRight) {
-    player.x += 0.1;
+    player.rotation += 0.001;
   }
   if(input.pressedUp) {
     player.y -= 0.1;
