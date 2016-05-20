@@ -2,40 +2,29 @@
 var canvas = document.getElementById("canvas");
 var ctx = canvas.getContext("2d");
 
+// data
+var player_stats = {
+  acceleration : 0.0005,
+  deceleration : 0.999,
+  rotation : 0.005
+}
+
 // input
 var inputMapping = {
   left : 37,
-  up: 38,
+  accelerate: 38,
   right : 39,
-  down : 40,
+  brake : 40,
+  shoot : 32,
 };
 
-var input = {
-  pressedUp : false,
-  pressedDown : false,
-  pressedLeft : false,
-  pressedRight : false
-};
-
-function makeKeyPressHandler(value) {
-  return function(e) {
-    if(e.keyCode == inputMapping.left) {
-      input.pressedLeft = value;
-    }
-    if(e.keyCode == inputMapping.right) {
-      input.pressedRight = value;
-    }
-    if(e.keyCode == inputMapping.up) {
-      input.pressedUp = value;
-    }
-    if(e.keyCode == inputMapping.down) {
-      input.pressedDown = value;
-    }
-  }
-}
-
-document.addEventListener("keydown", makeKeyPressHandler(true), false);
-document.addEventListener("keyup", makeKeyPressHandler(false), false);
+var input = [];
+document.addEventListener("keydown", function(e) {
+    input[e.keyCode] = true;
+  }, false);
+document.addEventListener("keyup", function(e) {
+    input[e.keyCode] = false;
+  }, false);
 
 // FPS display
 function makeFPSDisplay(oldWeight, newWeight) {
@@ -155,19 +144,20 @@ function WorldDraw(self) {
 }
 function WorldUpdate(self, input) {
   var player = self.objects[self.player];
-  if(input.pressedLeft) {
-    player.rotation -= 0.001;
+  if(input[inputMapping.left]) {
+    player.rotation -= player_stats.rotation;
   }
-  if(input.pressedRight) {
-    player.rotation += 0.001;
+  if(input[inputMapping.right]) {
+    player.rotation += player_stats.rotation;
   }
 
   player.acceleration = 0;
-  if(input.pressedUp) {
-    player.acceleration = 0.0001;
+  if(input[inputMapping.accelerate]) {
+    player.acceleration = player_stats.acceleration;
   }
-  if(input.pressedDown) {
-    player.acceleration = -0.00005;
+  if(input[inputMapping.brake]) {
+    player.vx *= player_stats.deceleration;
+    player.vy *= player_stats.deceleration;
   }
   
   for(var i = 0; i < self.objects.length; i++) {
