@@ -4,9 +4,9 @@ var ctx = canvas.getContext("2d");
 
 // data
 var player_stats = {
-  acceleration : 0.0005,
-  deceleration : 0.999,
-  rotation : 0.005
+  acceleration : 500,
+  deceleration : -500,
+  rotation : 5
 }
 
 // input
@@ -119,7 +119,7 @@ function ObjectDraw(obj) {
   ctx.restore();
 }
 
-function ObjectPhysics(obj) {
+function ObjectPhysics(obj, dt) {
 
   var ax = Math.cos(obj.rotation);
   var ay = Math.sin(obj.rotation);
@@ -127,11 +127,11 @@ function ObjectPhysics(obj) {
   ax = ax / aLen * obj.acceleration;
   ay = ay / aLen * obj.acceleration;
   
-  obj.vx += ax;
-  obj.vy += ay;
+  obj.vx += dt * ax;
+  obj.vy += dt * ay;
 
-  obj.x += obj.vx;
-  obj.y += obj.vy;
+  obj.x += dt * obj.vx;
+  obj.y += dt * obj.vy;
 
 }
 
@@ -142,13 +142,13 @@ function WorldDraw(self) {
     ObjectDraw(obj);
   }
 }
-function WorldUpdate(self, input) {
+function WorldUpdate(self, input, dt) {
   var player = self.objects[self.player];
   if(input[inputMapping.left]) {
-    player.rotation -= player_stats.rotation;
+    player.rotation -= dt * player_stats.rotation;
   }
   if(input[inputMapping.right]) {
-    player.rotation += player_stats.rotation;
+    player.rotation += dt * player_stats.rotation;
   }
 
   player.acceleration = 0;
@@ -156,13 +156,12 @@ function WorldUpdate(self, input) {
     player.acceleration = player_stats.acceleration;
   }
   if(input[inputMapping.brake]) {
-    player.vx *= player_stats.deceleration;
-    player.vy *= player_stats.deceleration;
+    player.acceleration = player_stats.deceleration;
   }
   
   for(var i = 0; i < self.objects.length; i++) {
     var obj = self.objects[i];
-    ObjectPhysics(obj);
+    ObjectPhysics(obj, dt);
   }
 }
 
@@ -188,7 +187,7 @@ function step(timestamp) {
   
   deltaTime = Math.min(deltaTime, 30);
   while(deltaTime > 0) {
-    WorldUpdate(world, input);
+    WorldUpdate(world, input, 1.0/1000.0);
     deltaTime -= 1.0;
   }
 }
