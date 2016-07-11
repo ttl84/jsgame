@@ -71,13 +71,13 @@ FPSCounter.prototype.draw = function(ctx, x, y) {
 // Periodic action
 function PeriodicAction(period, func) {
   this.period = period;
-  this.cycles = 0;
+  this.ticks = 0;
   this.func = func;
 }
-PeriodicAction.prototype.update = function(cycles) {
-  this.cycles += cycles;
-  if(this.cycles >= this.period) {
-    this.cycles -= this.period;
+PeriodicAction.prototype.update = function(ticks) {
+  this.ticks += ticks;
+  if(this.ticks >= this.period) {
+    this.ticks -= this.period;
     this.func();
   }
 }
