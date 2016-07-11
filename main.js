@@ -8,6 +8,24 @@ var player_stats = {
   deceleration : -500,
   rotation : 5
 }
+var shipCanvas = (function(){
+  var canvas = document.createElement('canvas');
+  canvas.width = 49;
+  canvas.height = 49;
+
+  var context = canvas.getContext('2d');
+  context.beginPath();
+  context.moveTo(0, 0);
+  context.lineTo(48, 24);
+  context.lineTo(0, 48);
+  context.lineTo(14, 24);
+  context.closePath();
+  context.stroke();
+
+  context.fillStyle = "#0095DD";
+  context.fill();
+  return canvas;
+})();
 
 // input
 var inputMapping = {
@@ -64,85 +82,58 @@ PeriodicAction.prototype.update = function(cycles) {
   }
 }
 
-// game logic
-function WorldMake(){
-  return {
-    objects : [],
-    cameraFocus : 0,
-    player : 0
-  };
+// Object
+function Object(canvas){
+  this.x = 100;
+  this.y = 100;
+  this.vx = 0;
+  this.vy = 0;
+  this.rotation = 0;
+  this.acceleration = 0;
+  this.canvas = canvas;
+
 }
-function WorldAdd(self, o){
-  self.objects.push(o);
-}
-
-function ShipMake(){
-  return {
-    x:100,
-    y:100,
-    vx:0,
-    vy:0,
-    rotation: 0,
-    acceleration: 0,
-    canvas: (function(){
-      var canvas = document.createElement('canvas');
-      canvas.width = 49;
-      canvas.height = 49;
-
-      var context = canvas.getContext('2d');
-      context.beginPath();
-      context.moveTo(0, 0);
-      context.lineTo(48, 24);
-      context.lineTo(0, 48);
-      context.lineTo(14, 24);
-      context.closePath();
-      context.stroke();
-
-      context.fillStyle = "#0095DD";
-      context.fill();
-      return canvas;
-    })()
-  }
-}
-
-function ObjectDraw(obj) {
-  var canvas = obj.canvas;
-
+Object.prototype.draw = function(ctx) {
   ctx.save();
 
-  ctx.translate(obj.x, obj.y);
-  ctx.rotate(obj.rotation);
+  ctx.translate(this.x, this.y);
+  ctx.rotate(this.rotation);
 
-  ctx.drawImage(canvas, -canvas.width/2, -canvas.height/2);
+  ctx.drawImage(this.canvas, -this.canvas.width/2, -this.canvas.height/2);
 
   ctx.restore();
 }
-
-function ObjectPhysics(obj, dt) {
-
-  var ax = Math.cos(obj.rotation);
-  var ay = Math.sin(obj.rotation);
+Object.prototype.updatePhysics = function(dt) {
+  var ax = Math.cos(this.rotation);
+  var ay = Math.sin(this.rotation);
   var aLen = Math.sqrt(ax * ax + ay * ay);
-  ax = ax / aLen * obj.acceleration;
-  ay = ay / aLen * obj.acceleration;
+  ax = ax / aLen * this.acceleration;
+  ay = ay / aLen * this.acceleration;
   
-  obj.vx += dt * ax;
-  obj.vy += dt * ay;
+  this.vx += dt * ax;
+  this.vy += dt * ay;
 
-  obj.x += dt * obj.vx;
-  obj.y += dt * obj.vy;
-
+  this.x += dt * this.vx;
+  this.y += dt * this.vy;
 }
 
-function WorldDraw(self) {
-
-  for(var i = 0; i < self.objects.length; i++) {
-    var obj = self.objects[i];
-    ObjectDraw(obj);
+// World
+function World() {
+  this.objects = [];
+  this.cameraFocus = 0;
+  this.player = 0;
+}
+World.prototype.addObject = function(o) {
+  this.objects.push(o);
+}
+World.prototype.drawObjects = function(ctx) {
+  for(var i = 0; i < this.objects.length; i++) {
+    this.objects[i].draw(ctx);
   }
 }
-function WorldUpdate(self, input, dt) {
-  var player = self.objects[self.player];
+World.prototype.updateObjects = function(input, dt) {
+  var player = this.objects[this.player];
+
   if(input[inputMapping.left]) {
     player.rotation -= dt * player_stats.rotation;
   }
@@ -158,9 +149,8 @@ function WorldUpdate(self, input, dt) {
     player.acceleration = player_stats.deceleration;
   }
   
-  for(var i = 0; i < self.objects.length; i++) {
-    var obj = self.objects[i];
-    ObjectPhysics(obj, dt);
+  for(var i = 0; i < this.objects.length; i++) {
+    this.objects[i].updatePhysics(dt);
   }
 }
 
@@ -169,8 +159,8 @@ var fpsCounterDisplayUpdateAction = new PeriodicAction(1000, function() {
   fpsCounter.updateText();
 });
 
-var world = WorldMake();
-WorldAdd(world, ShipMake());
+var world = new World();
+world.addObject(new Object(shipCanvas));
 
 var previousTimestamp = 0;
 var deltaTime = 0;
@@ -181,10 +171,10 @@ function step(timestamp) {
   previousTimestamp = timestamp;
 
   // draw stuff
-  ctx.canvas.width  = window.innerWidth;
+  ctx.canvas.width = window.innerWidth;
   ctx.canvas.height = window.innerHeight;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  WorldDraw(world);
+  world.drawObjects(ctx);
   fpsCounter.draw(ctx, 10, 50);
 
   // update other stuff
@@ -194,7 +184,7 @@ function step(timestamp) {
   // update game objects
   deltaTime = Math.min(deltaTime, 30);
   while(deltaTime > 0) {
-    WorldUpdate(world, input, 1.0/1000.0);
+    world.updateObjects(input, 1.0/1000.0);
     deltaTime -= 1.0;
   }
 }
