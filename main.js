@@ -26,42 +26,41 @@ document.addEventListener("keyup", function(e) {
     input[e.keyCode] = false;
   }, false);
 
-// FPS display
-function makeFPSDisplay(oldWeight, newWeight) {
-  return {
-    begin : new Date,
-    end : new Date,
-    avg : 0,
-    old_weight : oldWeight,
-    new_weight : newWeight,
-
-  };
+// FPS counter
+function FPSCounter(oldWeight, newWeight) {
+  this.begin = new Date;
+  this.end = new Date;
+  this.avg = 0;
+  this.old_weight = oldWeight;
+  this.new_weight = newWeight;
+  this.txt = "";
 }
-
-function updateFPSDisplay(self, timestamp) {
-  self.begin = self.end;
-  self.end = timestamp;
-  var delta = self.end - self.begin;
-  self.avg = (self.avg * self.old_weight + delta * self.new_weight) / (self.old_weight + self.new_weight);
+FPSCounter.prototype.update = function(timestamp) {
+  this.begin = this.end;
+  this.end = timestamp;
+  var delta = this.end - this.begin;
+  this.avg = (this.avg * this.old_weight + delta * this.new_weight) / (this.old_weight + this.new_weight);
 }
-function showFPSDisplay(self, ele) {
-  ele.innerHTML = "fps=" + (1000/self.avg).toFixed(1);
+FPSCounter.prototype.updateText = function() {
+  this.txt = "fps=" + (1000/this.avg).toFixed(1);
+}
+FPSCounter.prototype.draw = function(ctx, x, y) {
+  ctx.font = "30px Comic Sans MS";
+  ctx.fillStyle = "red";
+  ctx.fillText(this.txt, x, y);
 }
 
 // Periodic action
-function makePeriodicAction(period_, func_) {
-  return {
-    period : period_,
-    cycles: 0,
-    func : func_
-  };
+function PeriodicAction(period, func) {
+  this.period = period;
+  this.cycles = 0;
+  this.func = func;
 }
-
-function updatePeriodicAction(action, cycles) {
-  action.cycles += cycles;
-  if(action.cycles >= action.period) {
-    action.cycles -= action.period;
-    action.func();
+PeriodicAction.prototype.update = function(cycles) {
+  this.cycles += cycles;
+  if(this.cycles >= this.period) {
+    this.cycles -= this.period;
+    this.func();
   }
 }
 
@@ -136,7 +135,7 @@ function ObjectPhysics(obj, dt) {
 }
 
 function WorldDraw(self) {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
   for(var i = 0; i < self.objects.length; i++) {
     var obj = self.objects[i];
     ObjectDraw(obj);
@@ -165,9 +164,9 @@ function WorldUpdate(self, input, dt) {
   }
 }
 
-var fpsDisplay = makeFPSDisplay(5, 1);
-var fpsShowAction = makePeriodicAction(1000, function() {
-  showFPSDisplay(fpsDisplay, document.getElementById("fps"));
+var fpsCounter = new FPSCounter(5, 1);
+var fpsCounterDisplayUpdateAction = new PeriodicAction(1000, function() {
+  fpsCounter.updateText();
 });
 
 var world = WorldMake();
@@ -177,14 +176,22 @@ var previousTimestamp = 0;
 var deltaTime = 0;
 function step(timestamp) {
   requestAnimationFrame(step);
+
   deltaTime += (timestamp - previousTimestamp);
   previousTimestamp = timestamp;
 
-  updateFPSDisplay(fpsDisplay, timestamp);
-  updatePeriodicAction(fpsShowAction, deltaTime);
-
+  // draw stuff
+  ctx.canvas.width  = window.innerWidth;
+  ctx.canvas.height = window.innerHeight;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
   WorldDraw(world);
+  fpsCounter.draw(ctx, 10, 50);
+
+  // update other stuff
+  fpsCounter.update(timestamp);
+  fpsCounterDisplayUpdateAction.update(deltaTime);
   
+  // update game objects
   deltaTime = Math.min(deltaTime, 30);
   while(deltaTime > 0) {
     WorldUpdate(world, input, 1.0/1000.0);
