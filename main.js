@@ -82,8 +82,8 @@ PeriodicAction.prototype.update = function(ticks) {
   }
 }
 
-// Object
-function Object(canvas){
+// GameObj
+function GameObj(canvas){
   this.x = 100;
   this.y = 100;
   this.vx = 0;
@@ -93,7 +93,7 @@ function Object(canvas){
   this.canvas = canvas;
 
 }
-Object.prototype.draw = function(ctx) {
+GameObj.prototype.draw = function(ctx) {
   ctx.save();
 
   ctx.translate(this.x, this.y);
@@ -103,7 +103,10 @@ Object.prototype.draw = function(ctx) {
 
   ctx.restore();
 }
-Object.prototype.updatePhysics = function(dt) {
+GameObj.prototype.updateOnInput = function(input, dt) {
+  throw "updateOnInput not implemented";
+}
+GameObj.prototype.updatePhysics = function(dt) {
   var ax = Math.cos(this.rotation);
   var ay = Math.sin(this.rotation);
   var aLen = Math.sqrt(ax * ax + ay * ay);
@@ -115,6 +118,27 @@ Object.prototype.updatePhysics = function(dt) {
 
   this.x += dt * this.vx;
   this.y += dt * this.vy;
+}
+
+function Ship() {
+  GameObj.call(this, shipCanvas);
+}
+Ship.prototype = Object.create(GameObj.prototype);
+Ship.prototype.updateOnInput = function(input, dt) {
+  if(input[inputMapping.left]) {
+    this.rotation -= dt * player_stats.rotation;
+  }
+  if(input[inputMapping.right]) {
+    this.rotation += dt * player_stats.rotation;
+  }
+
+  this.acceleration = 0;
+  if(input[inputMapping.accelerate]) {
+    this.acceleration = player_stats.acceleration;
+  }
+  if(input[inputMapping.brake]) {
+    this.acceleration = player_stats.deceleration;
+  }
 }
 
 // World
@@ -132,23 +156,9 @@ World.prototype.drawObjects = function(ctx) {
   }
 }
 World.prototype.updateObjects = function(input, dt) {
-  var player = this.objects[this.player];
-
-  if(input[inputMapping.left]) {
-    player.rotation -= dt * player_stats.rotation;
+  for(var i = 0; i < this.objects.length; i++) {
+    this.objects[i].updateOnInput(input, dt);
   }
-  if(input[inputMapping.right]) {
-    player.rotation += dt * player_stats.rotation;
-  }
-
-  player.acceleration = 0;
-  if(input[inputMapping.accelerate]) {
-    player.acceleration = player_stats.acceleration;
-  }
-  if(input[inputMapping.brake]) {
-    player.acceleration = player_stats.deceleration;
-  }
-  
   for(var i = 0; i < this.objects.length; i++) {
     this.objects[i].updatePhysics(dt);
   }
@@ -160,7 +170,7 @@ var fpsCounterDisplayUpdateAction = new PeriodicAction(1000, function() {
 });
 
 var world = new World();
-world.addObject(new Object(shipCanvas));
+world.addObject(new Ship());
 
 var previousTimestamp = 0;
 var deltaTime = 0;
