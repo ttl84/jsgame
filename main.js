@@ -4,8 +4,9 @@ var ctx = canvas.getContext("2d");
 
 // data
 var player_stats = {
-  acceleration : 500,
-  deceleration : -500,
+  acceleration : -500,
+  deceleration : 500,
+  target_vy : -500,
   rotation : 5
 }
 var shipCanvas = (function(){
@@ -15,10 +16,10 @@ var shipCanvas = (function(){
 
   var context = canvas.getContext('2d');
   context.beginPath();
-  context.moveTo(0, 0);
-  context.lineTo(48, 24);
+  context.moveTo(24, 0);
+  context.lineTo(48, 48);
+  context.lineTo(24, 40);
   context.lineTo(0, 48);
-  context.lineTo(14, 24);
   context.closePath();
   context.stroke();
 
@@ -86,18 +87,20 @@ PeriodicAction.prototype.update = function(ticks) {
 function GameObj(canvas){
   this.x = 100;
   this.y = 100;
+  this.r = 0;
   this.vx = 0;
   this.vy = 0;
-  this.rotation = 0;
-  this.acceleration = 0;
+  this.vr = 0;
+  this.ax = 0;
+  this.ay = 0;
+  this.ar = 0;
   this.canvas = canvas;
-
 }
 GameObj.prototype.draw = function(ctx) {
   ctx.save();
 
   ctx.translate(this.x, this.y);
-  ctx.rotate(this.rotation);
+  ctx.rotate(this.r);
 
   ctx.drawImage(this.canvas, -this.canvas.width/2, -this.canvas.height/2);
 
@@ -107,17 +110,17 @@ GameObj.prototype.updateOnInput = function(input, dt) {
   throw "updateOnInput not implemented";
 }
 GameObj.prototype.updatePhysics = function(dt) {
-  var ax = Math.cos(this.rotation);
-  var ay = Math.sin(this.rotation);
-  var aLen = Math.sqrt(ax * ax + ay * ay);
-  ax = ax / aLen * this.acceleration;
-  ay = ay / aLen * this.acceleration;
-  
-  this.vx += dt * ax;
-  this.vy += dt * ay;
+  this.vx += dt * this.ax;
+  this.vy += dt * this.ay;
+  this.vr += dt * this.ar;
 
   this.x += dt * this.vx;
   this.y += dt * this.vy;
+  this.r += dt * this.vr;
+
+  this.ax = 0;
+  this.ay = 0;
+  this.ar = 0;
 }
 
 function Ship() {
@@ -125,19 +128,22 @@ function Ship() {
 }
 Ship.prototype = Object.create(GameObj.prototype);
 Ship.prototype.updateOnInput = function(input, dt) {
-  if(input[inputMapping.left]) {
-    this.rotation -= dt * player_stats.rotation;
-  }
-  if(input[inputMapping.right]) {
-    this.rotation += dt * player_stats.rotation;
-  }
 
-  this.acceleration = 0;
+  var diff_vy = player_stats.target_vy - this.vy;
+  this.ay += diff_vy / 2;
   if(input[inputMapping.accelerate]) {
-    this.acceleration = player_stats.acceleration;
+    this.ay += player_stats.acceleration;
   }
   if(input[inputMapping.brake]) {
-    this.acceleration = player_stats.deceleration;
+    this.ay += player_stats.deceleration;
+  }
+  if(input[inputMapping.left]) {
+    this.ax += -1;
+    this.ar -= player_stats.rotation;
+  }
+  if(input[inputMapping.right]) {
+    this.ax += 1;
+    this.ar += player_stats.rotation;
   }
 }
 
