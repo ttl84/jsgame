@@ -6,6 +6,7 @@ var ctx = canvas.getContext("2d");
 var player_stats = {
   acceleration : -500,
   deceleration : 500,
+  side_acceleration: 500,
   target_vy : -500,
   rotation : 5
 }
@@ -29,7 +30,7 @@ var shipCanvas = (function(){
 })();
 
 // input
-var inputMapping = {
+var keyCodes = {
   left : 37,
   accelerate: 38,
   right : 39,
@@ -37,13 +38,23 @@ var inputMapping = {
   shoot : 32,
 };
 
-var input = [];
+var keypress = [];
+
+
 document.addEventListener("keydown", function(e) {
-    input[e.keyCode] = true;
+    keypress[e.keyCode] = true;
   }, false);
 document.addEventListener("keyup", function(e) {
-    input[e.keyCode] = false;
+    keypress[e.keyCode] = false;
   }, false);
+
+function Inputs() {
+  this.left = keypress[keyCodes.left];
+  this.right = keypress[keyCodes.right];
+  this.accelerate = keypress[keyCodes.accelerate];
+  this.brake = keypress[keyCodes.brake];
+  this.shoot = keypress[keyCodes.shoot];
+}
 
 // FPS counter
 function FPSCounter(oldWeight, newWeight) {
@@ -129,21 +140,21 @@ function Ship() {
 Ship.prototype = Object.create(GameObj.prototype);
 Ship.prototype.updateOnInput = function(input, dt) {
 
-  var diff_vy = player_stats.target_vy - this.vy;
-  this.ay += diff_vy / 2;
-  if(input[inputMapping.accelerate]) {
+  if(!input.accelerate && !input.brake) {
+    var diff_vy = player_stats.target_vy - this.vy;
+    this.ay += diff_vy * 0.5;
+  } else if(input.accelerate) {
     this.ay += player_stats.acceleration;
-  }
-  if(input[inputMapping.brake]) {
+  } else if(input.brake) {
     this.ay += player_stats.deceleration;
   }
-  if(input[inputMapping.left]) {
-    this.ax += -1;
-    this.ar -= player_stats.rotation;
-  }
-  if(input[inputMapping.right]) {
-    this.ax += 1;
-    this.ar += player_stats.rotation;
+
+  if(!input.left && !input.right) {
+    this.ax += this.vx * -0.99;
+  } else if(input.left) {
+    this.ax += -player_stats.side_acceleration;
+  } else if(input.right) {
+    this.ax += player_stats.side_acceleration;
   }
 }
 
@@ -198,9 +209,10 @@ function step(timestamp) {
   fpsCounterDisplayUpdateAction.update(deltaTime);
   
   // update game objects
+  var inputs = new Inputs();
   deltaTime = Math.min(deltaTime, 30);
   while(deltaTime > 0) {
-    world.updateObjects(input, 1.0/1000.0);
+    world.updateObjects(inputs, 1.0/1000.0);
     deltaTime -= 1.0;
   }
 }
