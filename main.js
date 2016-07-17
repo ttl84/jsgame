@@ -75,9 +75,11 @@ FPSCounter.prototype.updateText = function() {
   this.txt = "fps=" + (1000/this.avg).toFixed(1);
 }
 FPSCounter.prototype.draw = function(ctx, x, y) {
+  ctx.save();
   ctx.font = "30px Comic Sans MS";
   ctx.fillStyle = "red";
   ctx.fillText(this.txt, x, y);
+  ctx.restore();
 }
 
 // Periodic action
@@ -186,6 +188,16 @@ World.prototype.updateObjects = function(input, dt) {
     this.objects[i].updatePhysics(dt);
   }
 }
+World.prototype.drawInfo = function(ctx, x, y) {
+  var player = this.objects[this.player];
+  var txt = "position = (" + player.x.toFixed(0) + " " + player.y.toFixed(0) + ")";
+
+  ctx.save();
+  ctx.font = "30px Comic Sans MS";
+  ctx.fillStyle = "red";
+  ctx.fillText(txt, x, y);
+  ctx.restore();
+}
 
 var fpsCounter = new FPSCounter(5, 1);
 var fpsCounterDisplayUpdateAction = new PeriodicAction(1000, function() {
@@ -209,6 +221,7 @@ function step(timestamp) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   world.drawObjects(ctx);
   fpsCounter.draw(ctx, 10, 50);
+  world.drawInfo(ctx, 10, 100);
 
   // update other stuff
   fpsCounter.update(timestamp);
