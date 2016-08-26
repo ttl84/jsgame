@@ -56,44 +56,53 @@ function Inputs() {
   this.shoot = keypress[keyCodes.shoot];
 }
 
-// FPS counter
-function FPSCounter(oldWeight, newWeight) {
-  this.begin = new Date;
-  this.end = new Date;
-  this.avg = 0;
-  this.old_weight = oldWeight;
-  this.new_weight = newWeight;
-  this.txt = "";
+function TextDisplay(args) {
+  this.font = args.font || "30px Comic Sans MS";
+  this.fillStyle = args.fillStyle || "red";
+  this.src = args.src;
+  this.x = args.x || 0;
+  this.y = args.y || 0;
 }
-FPSCounter.prototype.update = function(timestamp) {
-  this.begin = this.end;
-  this.end = timestamp;
-  var delta = this.end - this.begin;
-  this.avg = (this.avg * this.old_weight + delta * this.new_weight) / (this.old_weight + this.new_weight);
-}
-FPSCounter.prototype.updateText = function() {
-  this.txt = "fps=" + (1000/this.avg).toFixed(1);
-}
-FPSCounter.prototype.draw = function(ctx, x, y) {
+TextDisplay.prototype.draw = function(ctx) {
   ctx.save();
-  ctx.font = "30px Comic Sans MS";
-  ctx.fillStyle = "red";
-  ctx.fillText(this.txt, x, y);
+  ctx.font = this.font;
+  ctx.fillStyle = this.fillStyle;
+  ctx.fillText(this.src.getText(), this.x, this.y);
   ctx.restore();
 }
 
-// Periodic action
-function PeriodicAction(period, func) {
-  this.period = period;
-  this.ticks = 0;
-  this.func = func;
+// FPS counter
+function FPSCounter(args) {
+  this.avg = 0;
+  this.oldWeight = args.oldWeight;
+  this.newWeight = args.newWeight;
+  this.txt = "fps=?";
+  this.scheduleTextUpdate();
 }
-PeriodicAction.prototype.update = function(ticks) {
-  this.ticks += ticks;
-  if(this.ticks >= this.period) {
-    this.ticks -= this.period;
-    this.func();
+FPSCounter.prototype.update = function(dt) {
+  this.avg = (this.avg * this.oldWeight + dt * this.newWeight) / (this.oldWeight + this.newWeight);
+};
+FPSCounter.prototype.getAvg = function() {
+  return this.avg;
+};
+FPSCounter.prototype.scheduleTextUpdate = function(interval) {
+  if(this.interval) {
+    this.stopUpdate();
   }
+  this.interval = setInterval(function() {
+    var avg = this.getAvg();
+    var fps = 1000 / avg;
+    this.txt = "fps=" + fps.toFixed(1);
+  }.bind(this), interval || 1000);
+};
+FPSCounter.prototype.stopUpdate = function() {
+  if(this.interval) {
+    clearInterval(this.interval);
+    this.interval = undefined;
+  }
+};
+FPSCounter.prototype.getText = function () {
+  return this.txt;
 }
 
 // GameObj
@@ -168,8 +177,8 @@ function World() {
 }
 World.prototype.addObject = function(o) {
   this.objects.push(o);
-}
-World.prototype.drawObjects = function(ctx) {
+};
+World.prototype.draw = function(ctx) {
   ctx.save();
   var focusObj = this.objects[this.cameraFocus];
   ctx.translate(-focusObj.x + ctx.canvas.width / 2, -focusObj.y + ctx.canvas.height / 2);
@@ -179,61 +188,96 @@ World.prototype.drawObjects = function(ctx) {
   }
 
   ctx.restore();
-}
-World.prototype.updateObjects = function(input, dt) {
-  for(var i = 0; i < this.objects.length; i++) {
-    this.objects[i].updateOnInput(input, dt);
-  }
-  for(var i = 0; i < this.objects.length; i++) {
-    this.objects[i].updatePhysics(dt);
-  }
-}
-World.prototype.drawInfo = function(ctx, x, y) {
-  var player = this.objects[this.player];
-  var txt = "position = (" + player.x.toFixed(0) + " " + player.y.toFixed(0) + ")";
-
-  ctx.save();
-  ctx.font = "30px Comic Sans MS";
-  ctx.fillStyle = "red";
-  ctx.fillText(txt, x, y);
-  ctx.restore();
-}
-
-var fpsCounter = new FPSCounter(5, 1);
-var fpsCounterDisplayUpdateAction = new PeriodicAction(1000, function() {
-  fpsCounter.updateText();
-});
-
-var world = new World();
-world.addObject(new Ship());
-
-var previousTimestamp = 0;
-var deltaTime = 0;
-function step(timestamp) {
-  requestAnimationFrame(step);
-
-  deltaTime += (timestamp - previousTimestamp);
-  previousTimestamp = timestamp;
-
-  // draw stuff
-  ctx.canvas.width = window.innerWidth;
-  ctx.canvas.height = window.innerHeight;
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  world.drawObjects(ctx);
-  fpsCounter.draw(ctx, 10, 50);
-  world.drawInfo(ctx, 10, 100);
-
-  // update other stuff
-  fpsCounter.update(timestamp);
-  fpsCounterDisplayUpdateAction.update(deltaTime);
-  
-  // update game objects
+};
+World.prototype.update = function (dt) {
   var inputs = new Inputs();
-  deltaTime = Math.min(deltaTime, 30);
-  while(deltaTime > 0) {
-    world.updateObjects(inputs, 1.0/1000.0);
-    deltaTime -= 1.0;
+  this.updateObjects(inputs, dt);
+};
+World.prototype.updateObjects = function(input, timestep) {
+  for(var i = 0; i < this.objects.length; i++) {
+    this.objects[i].updateOnInput(input, timestep);
   }
-}
+  for(var i = 0; i < this.objects.length; i++) {
+    this.objects[i].updatePhysics(timestep);
+  }
+};
 
-step(1);
+function PlayerPositionWatch (world) {
+  this.world = world;
+}
+PlayerPositionWatch.prototype.getText = function () {
+  var player = this.world.objects[this.world.player];
+  return "position=(" + player.x.toFixed(0) + " " + player.y.toFixed(0) + ")";
+};
+
+function Game () {
+  this.previousDrawTime = performance.now();
+  this.previousUpdateTime = performance.now();
+  this.dt = 0;
+
+  this.world = new World();
+  this.world.addObject(new Ship());
+
+  this.playerPositionDisplay = new TextDisplay({
+    src: new PlayerPositionWatch(this.world),
+    x: 10,
+    y: 100
+  })
+
+  this.fpsCounter = new FPSCounter({
+    oldWeight: 5,
+    newWeight: 1
+  });
+  this.fpsCounterDisplay = new TextDisplay({
+    src: this.fpsCounter,
+    x: 10,
+    y: 50
+  });
+
+}
+Game.prototype.draw = function (timestamp) {
+  if(!this.running) {
+    return;
+  }
+  requestAnimationFrame(Game.prototype.draw.bind(this));
+  timestamp = timestamp || 0;
+  this.fpsCounter.update(timestamp - this.previousDrawTime);
+  this.previousDrawTime = timestamp;
+  // draw stuff
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  this.world.draw(ctx);
+  this.fpsCounterDisplay.draw(ctx);
+  this.playerPositionDisplay.draw(ctx);
+};
+Game.prototype.update = function () {
+  if(!this.running) {
+    return;
+  }
+  setTimeout(Game.prototype.update.bind(this), 1);
+
+  var timestamp = performance.now();
+  this.dt += (timestamp - this.previousUpdateTime) / 1000;
+  this.previousUpdateTime = timestamp;
+
+  while(this.dt > 0) {
+    this.world.update(0.001);
+    this.dt -= 0.001;
+  }
+};
+Game.prototype.run = function () {
+  if(this.running) {
+    return;
+  }
+  this.running = true;
+  this.update();
+  this.draw();
+};
+Game.prototype.stop = function () {
+  this.running = false;
+};
+
+var game = new Game();
+game.run();
