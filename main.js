@@ -1,6 +1,4 @@
 "use strict";
-var canvas = document.getElementById("canvas");
-var ctx = canvas.getContext("2d");
 
 // data
 var player_stats = {
@@ -30,31 +28,29 @@ var shipCanvas = (function(){
 })();
 
 // input
-var keyCodes = {
-  left : 37,
-  accelerate: 38,
-  right : 39,
-  brake : 40,
-  shoot : 32,
-};
-
-var keypress = [];
-
-
+var Keyboard =  {};
+Keyboard.pressed = [];
 document.addEventListener("keydown", function(e) {
-    keypress[e.keyCode] = true;
-  }, false);
+  Keyboard.pressed[e.keyCode] = true;
+});
 document.addEventListener("keyup", function(e) {
-    keypress[e.keyCode] = false;
-  }, false);
-
-function Inputs() {
-  this.left = keypress[keyCodes.left];
-  this.right = keypress[keyCodes.right];
-  this.accelerate = keypress[keyCodes.accelerate];
-  this.brake = keypress[keyCodes.brake];
-  this.shoot = keypress[keyCodes.shoot];
-}
+  Keyboard.pressed[e.keyCode] = false;
+});
+Keyboard.left = function () {
+  return Keyboard.pressed[37];
+};
+Keyboard.right = function () {
+  return Keyboard.pressed[39];
+};
+Keyboard.accelerate = function () {
+  return Keyboard.pressed[38];
+};
+Keyboard.brake = function () {
+  return Keyboard.pressed[40];
+};
+Keyboard.shoot = function () {
+  return Keyboard.pressed[32];
+};
 
 function TextDisplay(args) {
   this.font = args.font || "30px Comic Sans MS";
@@ -151,20 +147,20 @@ function Ship() {
 Ship.prototype = Object.create(GameObj.prototype);
 Ship.prototype.updateOnInput = function(input, dt) {
 
-  if(!input.accelerate && !input.brake) {
+  if(!input.accelerate() && !input.brake()) {
     var diff_vy = player_stats.target_vy - this.vy;
     this.ay += diff_vy * 0.5;
-  } else if(input.accelerate) {
+  } else if(input.accelerate()) {
     this.ay += player_stats.acceleration;
-  } else if(input.brake) {
+  } else if(input.brake()) {
     this.ay += player_stats.deceleration;
   }
 
-  if(!input.left && !input.right) {
+  if(!input.left() && !input.right()) {
     this.ax += this.vx * -0.99;
-  } else if(input.left) {
+  } else if(input.left()) {
     this.ax += -player_stats.side_acceleration;
-  } else if(input.right) {
+  } else if(input.right()) {
     this.ax += player_stats.side_acceleration;
   }
 }
@@ -189,11 +185,7 @@ World.prototype.draw = function(ctx) {
 
   ctx.restore();
 };
-World.prototype.update = function (dt) {
-  var inputs = new Inputs();
-  this.updateObjects(inputs, dt);
-};
-World.prototype.updateObjects = function(input, timestep) {
+World.prototype.update = function(input, timestep) {
   for(var i = 0; i < this.objects.length; i++) {
     this.objects[i].updateOnInput(input, timestep);
   }
@@ -233,24 +225,28 @@ function Game () {
     x: 10,
     y: 50
   });
+  this.canvas = document.getElementById("canvas");
+  this.ctx = canvas.getContext("2d");
 
+  this.running = false;
 }
 Game.prototype.draw = function (timestamp) {
   if(!this.running) {
     return;
   }
+
   requestAnimationFrame(Game.prototype.draw.bind(this));
   timestamp = timestamp || 0;
   this.fpsCounter.update(timestamp - this.previousDrawTime);
   this.previousDrawTime = timestamp;
   // draw stuff
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  this.canvas.width = window.innerWidth;
+  this.canvas.height = window.innerHeight;
+  this.ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  this.world.draw(ctx);
-  this.fpsCounterDisplay.draw(ctx);
-  this.playerPositionDisplay.draw(ctx);
+  this.world.draw(this.ctx);
+  this.fpsCounterDisplay.draw(this.ctx);
+  this.playerPositionDisplay.draw(this.ctx);
 };
 Game.prototype.update = function () {
   if(!this.running) {
@@ -263,7 +259,7 @@ Game.prototype.update = function () {
   this.previousUpdateTime = timestamp;
 
   while(this.dt > 0) {
-    this.world.update(0.001);
+    this.world.update(Keyboard, 0.001);
     this.dt -= 0.001;
   }
 };
