@@ -229,6 +229,9 @@ function Game () {
   this.ctx = canvas.getContext("2d");
 
   this.running = false;
+
+  this.outsideRadius = window.innerWidth + window.innerHeight;
+  this.maxEnemies = 1;
 }
 Game.prototype.draw = function (timestamp) {
   if(!this.running) {
@@ -255,12 +258,14 @@ Game.prototype.update = function () {
   setTimeout(Game.prototype.update.bind(this), 1);
 
   var timestamp = performance.now();
-  this.dt += (timestamp - this.previousUpdateTime) / 1000;
+  this.dt += (timestamp - this.previousUpdateTime);
   this.previousUpdateTime = timestamp;
+
+  this.outsideRadius = window.innerWidth + window.innerHeight;
 
   while(this.dt > 0) {
     this.world.update(Keyboard, 0.001);
-    this.dt -= 0.001;
+    this.dt -= 1.0;
   }
 };
 Game.prototype.run = function () {
