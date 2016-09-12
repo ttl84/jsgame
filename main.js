@@ -8,24 +8,7 @@ var player_stats = {
   target_vy : -500,
   rotation : 5
 }
-var shipCanvas = (function(){
-  var canvas = document.createElement('canvas');
-  canvas.width = 49;
-  canvas.height = 49;
 
-  var context = canvas.getContext('2d');
-  context.beginPath();
-  context.moveTo(24, 0);
-  context.lineTo(48, 48);
-  context.lineTo(24, 40);
-  context.lineTo(0, 48);
-  context.closePath();
-  context.stroke();
-
-  context.fillStyle = "#0095DD";
-  context.fill();
-  return canvas;
-})();
 
 // input
 var Keyboard =  {};
@@ -51,6 +34,7 @@ Keyboard.brake = function () {
 Keyboard.shoot = function () {
   return Keyboard.pressed[32];
 };
+
 
 function TextDisplay(args) {
   this.font = args.font || "30px Comic Sans MS";
@@ -99,12 +83,43 @@ FPSCounter.prototype.stopUpdate = function() {
 };
 FPSCounter.prototype.getText = function () {
   return this.txt;
-}
+};
 
 // GameObj
-function GameObj(canvas){
-  this.x = 100;
-  this.y = 100;
+function combine(){
+  var sum = {};
+  for(var i = 0; i < arguments.length; i++) {
+    var object = arguments[i];
+    Object.keys(object).forEach(function(key) {
+      if(typeof(sum[key]) === typeof(object[key])) {
+        if(typeof(sum[key]) === "object") {
+          sum[key] = combine(sum[key], object[key]);
+        } else {
+          sum[key] = object[key];
+        }
+      } else if(typeof(sum[key]) === "undefined") {
+        sum[key] = object[key];
+      } else {
+        throw "combine: type conflict";
+      }
+    });
+  }
+  return sum;
+}
+
+function assertImplemented(obj, meth) {
+  if(typeof (obj[meth]) !== "function") {
+    throw meth + " is not implemented";
+  }
+}
+
+function extendPrototype(dst, src) {
+  dst.prototype = combine(dst.prototype, src.prototype);
+}
+
+function Physics() {
+  this.x = 0;
+  this.y = 0;
   this.r = 0;
   this.vx = 0;
   this.vy = 0;
@@ -112,22 +127,8 @@ function GameObj(canvas){
   this.ax = 0;
   this.ay = 0;
   this.ar = 0;
-  this.canvas = canvas;
 }
-GameObj.prototype.draw = function(ctx) {
-  ctx.save();
-
-  ctx.translate(this.x, this.y);
-  ctx.rotate(this.r);
-
-  ctx.drawImage(this.canvas, -this.canvas.width/2, -this.canvas.height/2);
-
-  ctx.restore();
-}
-GameObj.prototype.updateOnInput = function(input, dt) {
-  throw "updateOnInput not implemented";
-}
-GameObj.prototype.updatePhysics = function(dt) {
+Physics.prototype.updatePhysics = function(dt) {
   this.vx += dt * this.ax;
   this.vy += dt * this.ay;
   this.vr += dt * this.ar;
@@ -139,31 +140,100 @@ GameObj.prototype.updatePhysics = function(dt) {
   this.ax = 0;
   this.ay = 0;
   this.ar = 0;
+};
+
+function Drawable() {
+  this.width = 0;
+  this.height = 0;
+  this.x = 0;
+  this.y = 0;
+  this.r = 0;
+  assertImplemented(this, "customDraw");
 }
+Drawable.prototype.draw = function(ctx) {
+  ctx.save();
+
+  ctx.translate(this.x, this.y);
+  ctx.rotate(this.r);
+  //ctx.translate(-this.width/2, -this.height/2);
+
+  this.customDraw(ctx);
+
+  ctx.restore();
+
+};
+
+function Inputable(){
+  assertImplemented(this, "updateOnInput");
+}
+
+function Bullet(parent) {
+  Physics.call(this);
+  Drawable.call(this);
+  this.width = 3;
+  this.height = 3;
+  var speed = 100;
+  var headingX = speed * Math.cos(parent.r);
+  var headingY = speed * Math.sin(parent.r);
+  this.vx = headingX + parent.vx;
+  this.vy = headingY + parent.vy;
+  this.x = parent.x;
+  this.y = parent.y;
+}
+extendPrototype(Bullet, Physics);
+extendPrototype(Bullet, Drawable);
+Bullet.prototype.customDraw = function(ctx) {
+  ctx.beginPath();
+  ctx.moveTo(-1, -1);
+  ctx.lineTo(1, -1);
+  ctx.lineTo(1, 1);
+  ctx.closePath();
+  ctx.stroke();
+};
 
 function Ship() {
-  GameObj.call(this, shipCanvas);
+  Physics.call(this);
+  Drawable.call(this);
+  Inputable.call(this);
+  this.width = 49;
+  this.height = 49;
+  this.gunCooldown = 0;
 }
-Ship.prototype = Object.create(GameObj.prototype);
-Ship.prototype.updateOnInput = function(input, dt) {
+extendPrototype(Ship, Physics);
+extendPrototype(Ship, Drawable);
+extendPrototype(Ship, Inputable);
+Ship.prototype.updateOnInput = function(game, dt) {
+  this.ar = 0;
+  this.vr = 0;
+  this.r = 0;
+  var screenCenterX = game.canvas.width / 2;
+  var screenCenterY = game.canvas.height / 2;
+  var headingX = game.pointer.x - screenCenterX;
+  var headingY = game.pointer.y - screenCenterY;
+  this.vx = headingX;
+  this.vy = headingY;
+  this.r = Math.atan2(this.vx, -this.vy);
 
-  if(!input.accelerate() && !input.brake()) {
-    var diff_vy = player_stats.target_vy - this.vy;
-    this.ay += diff_vy * 0.5;
-  } else if(input.accelerate()) {
-    this.ay += player_stats.acceleration;
-  } else if(input.brake()) {
-    this.ay += player_stats.deceleration;
+  if(game.pointer.down[0] && this.gunCooldown <= 0) {
+    this.gunCooldown = 0.1;
+    game.world.addObject(new Bullet(this));
+  } else {
+    this.gunCooldown -= dt;
   }
+};
+Ship.prototype.customDraw = function(ctx) {
+  ctx.beginPath();
+  ctx.moveTo(0, -24);
+  ctx.lineTo(24, 24);
+  ctx.lineTo(0, 16);
+  ctx.lineTo(-24, 24);
+  ctx.closePath();
+  ctx.stroke();
 
-  if(!input.left() && !input.right()) {
-    this.ax += this.vx * -0.99;
-  } else if(input.left()) {
-    this.ax += -player_stats.side_acceleration;
-  } else if(input.right()) {
-    this.ax += player_stats.side_acceleration;
-  }
-}
+  ctx.fillStyle = "#0095DD";
+  ctx.fill();
+};
+
 
 // World
 function World() {
@@ -177,7 +247,7 @@ World.prototype.addObject = function(o) {
 World.prototype.draw = function(ctx) {
   ctx.save();
   var focusObj = this.objects[this.cameraFocus];
-  ctx.translate(-focusObj.x + ctx.canvas.width / 2, -focusObj.y + ctx.canvas.height / 2);
+  //ctx.translate(-focusObj.x + ctx.canvas.width / 2, -focusObj.y + ctx.canvas.height / 2);
 
   for(var i = 0; i < this.objects.length; i++) {
     this.objects[i].draw(ctx);
@@ -187,7 +257,9 @@ World.prototype.draw = function(ctx) {
 };
 World.prototype.update = function(input, timestep) {
   for(var i = 0; i < this.objects.length; i++) {
-    this.objects[i].updateOnInput(input, timestep);
+    if(this.objects[i].updateOnInput) {
+      this.objects[i].updateOnInput(input, timestep);
+    }
   }
   for(var i = 0; i < this.objects.length; i++) {
     this.objects[i].updatePhysics(timestep);
@@ -228,6 +300,22 @@ function Game () {
   this.canvas = document.getElementById("canvas");
   this.ctx = canvas.getContext("2d");
 
+  this.pointer = {
+    x:0,
+    y:0,
+    down:[]
+  };
+  this.canvas.addEventListener("mousemove", function(e) {
+    this.pointer.x = e.clientX;
+    this.pointer.y = e.clientY;
+  }.bind(this));
+  this.canvas.addEventListener("mousedown", function(e) {
+    this.pointer.down[e.button] = true;
+  }.bind(this));
+  this.canvas.addEventListener("mouseup", function(e) {
+    this.pointer.down[e.button] = false;
+  }.bind(this));
+
   this.running = false;
 
   this.outsideRadius = window.innerWidth + window.innerHeight;
@@ -264,7 +352,7 @@ Game.prototype.update = function () {
   this.outsideRadius = window.innerWidth + window.innerHeight;
 
   while(this.dt > 0) {
-    this.world.update(Keyboard, 0.001);
+    this.world.update(this, 0.001);
     this.dt -= 1.0;
   }
 };
